@@ -1,0 +1,121 @@
+---
+import LoginForm from '../components/LoginForm.astro';
+import VideoPlayer from '../components/VideoPlayer.astro';
+import DataGraph from '../components/DataGraph.astro';
+import VideoControls from '../components/VideoControls.astro';
+import ScreenshotHandler from '../components/ScreenshotHandler.astro';
+import '../styles/global.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Video Data Visualizer</title>
+    <style>
+      /* Triangle pointer for info display */
+      #currentValueDisplay::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-right: 8px solid rgba(255, 255, 255, 0.9);
+        z-index: 21;
+      }
+      
+      /* Add a subtle shadow to the triangle */
+      #currentValueDisplay::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -10px;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-top: 9px solid transparent;
+        border-bottom: 9px solid transparent;
+        border-right: 9px solid rgba(0, 0, 0, 0.1);
+        z-index: 20;
+      }
+
+      /* Triangle pointer for time display */
+      #timeDisplay::before {
+        content: '';
+        position: absolute;
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-bottom: 8px solid rgba(255, 255, 255, 0.9);
+        z-index: 21;
+      }
+      
+      /* Add a subtle shadow to the time triangle */
+      #timeDisplay::after {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 9px solid transparent;
+        border-right: 9px solid transparent;
+        border-bottom: 9px solid rgba(0, 0, 0, 0.1);
+        z-index: 20;
+      }
+
+      /* Fix for screenshot container to prevent gray areas */
+      #video-data-container {
+        box-sizing: border-box;
+        /* overflow: hidden; */
+        background: #f3f4f6;
+      }
+
+      /* Ensure data display section doesn't cause layout issues */
+      #dataDisplaySection {
+        box-sizing: border-box;
+        width: 100%;
+        transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+      }
+
+      #video-graph-container > div:last-child {
+        transition: opacity 0.3s ease-in-out;
+        /* Keep element in layout even when opacity = 0 */
+        visibility: visible;
+      }
+
+      /* Prevent body scrolling during animations */
+      body.screenshot-mode {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body class="font-sans bg-gray-100 min-h-screen">
+    <LoginForm loginDisabled={true} />
+
+    <!-- Main App (shows by default when login is disabled) -->
+    <div id="mainApp" class="main-content-area flex flex-col lg:flex-row items-start justify-center p-5 min-h-screen" style="display: flex;">
+      <div class="flex flex-col items-center flex-grow max-w-4xl">
+        <div id="video-graph-container" class="w-full">
+          <VideoPlayer />
+          <DataGraph />
+        </div>
+      </div>
+
+      <VideoControls />
+    </div>
+
+    <ScreenshotHandler />
+  </body>
+</html>

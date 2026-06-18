@@ -1,0 +1,31 @@
+---
+export interface Props {
+  videoSrc?: string;
+}
+
+const { videoSrc = "/sample-video.mp4" } = Astro.props;
+---
+
+<div id="video-data-container" class="w-full">
+  <div class="w-full rounded-xl overflow-hidden mb-5">
+    <video
+      id="videoPlayer"
+      class="w-full h-auto block"
+      controls
+      preload="metadata"
+    >
+      <source src={videoSrc} type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <!-- Data display section (hidden by default) -->
+  <div id="dataDisplaySection" class="w-full bg-white rounded-xl mb-5 transition-all duration-300 ease-in-out" style="display: none;">
+    <div class="p-5">
+      <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">Current Data Values</h3>
+      <div id="dataValuesGrid" class="grid grid-cols-2 gap-4">
+        <!-- Data values will be populated here -->
+      </div>
+    </div>
+  </div>
+</div>

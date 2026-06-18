@@ -1,0 +1,476 @@
+---
+const dataCategories = [
+  { id: "impressions", name: "Impressions", color: "#3b82f6" }, // Blue
+  { id: "clicks", name: "Clicks", color: "#10b981" }, // Green
+  { id: "conversions", name: "Conversions", color: "#ef4444" }, // Red
+  { id: "engagement", name: "Engagement", color: "#f59e0b" }, // Amber
+];
+---
+
+<div class="relative w-full bg-white rounded-xl shadow-xl p-5">
+  <div class="w-full flex flex-row justify-between items-center mb-4">
+    <h3 class="text-2xl font-bold text-gray-800">Video Data Trends</h3>
+    <button
+      id="screenshotButton"
+      class="px-3 py-1 bg-transparent border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+    >
+      Screenshot
+    </button>
+  </div>
+  <canvas
+    id="dataGraph"
+    class="w-full block border border-gray-200 rounded-lg bg-gray-50"
+    style="height: 350px;"
+  ></canvas>
+  <div id="currentValueDisplay" class="absolute opacity-0 transition-opacity duration-200 pointer-events-none text-sm text-gray-800 leading-relaxed whitespace-nowrap px-3 py-2 bg-white/90 rounded-lg shadow-lg z-20 top-8 left-1/2 transform -translate-x-1/2"></div>
+  <div id="timeDisplay" class="absolute opacity-0 transition-opacity duration-200 pointer-events-none text-xs text-gray-800 font-medium px-2 py-1 bg-white/90 rounded-md shadow-md z-20 left-1/2 transform -translate-x-1/2"></div>
+</div>
+
+<script define:vars={{ dataCategories }}>
+  // Graph state
+  const state = {
+    videoDuration: 0,
+    allParsedData: {},
+    activeCategories: [],
+    animationFrameId: null,
+    categoryAnimationStates: {},
+    currentOverallMinValue: 0,
+    currentOverallMaxValue: 1000,
+    axisAnimationState: null,
+    isDraggingLine: false,
+    wasVideoPlayingBeforeDrag: false,
+    graphAppInitialized: false,
+  };
+
+  // Constants
+  const AXIS_ANIMATION_DURATION = 500;
+  const LINE_DRAG_HIT_AREA_PX = 10;
+
+  // DOM elements
+  let videoPlayer, dataGraphCanvas, ctx, currentValueDisplay, timeDisplay, screenshotButton;
+
+  function initDOM() {
+    videoPlayer = document.getElementById("videoPlayer");
+    dataGraphCanvas = document.getElementById("dataGraph");
+    if(dataGraphCanvas) {
+      ctx = dataGraphCanvas.getContext("2d");
+    }
+    currentValueDisplay = document.getElementById("currentValueDisplay");
+    timeDisplay = document.getElementById("timeDisplay");
+    screenshotButton = document.getElementById("screenshotButton");
+  }
+
+  function generateMockData(categoryId, duration) {
+    const data = [];
+    const pointsPerSecond = 10;
+    const totalPoints = Math.ceil(duration * pointsPerSecond) + 1;
+
+    let baseValue = 0;
+    let amplitude = 0;
+    let frequency = 0;
+    let noiseFactor = 0;
+
+    switch (categoryId) {
+      case "impressions":
+        baseValue = 500;
+        amplitude = 400;
+        frequency = 0.5;
+        noiseFactor = 50;
+        break;
+      case "clicks":
+        baseValue = 50;
+        amplitude = 40;
+        frequency = 1.0;
+        noiseFactor = 10;
+        break;
+      case "conversions":
+        baseValue = 5;
+        amplitude = 4;
+        frequency = 0.2;
+        noiseFactor = 2;
+        break;
+      case "engagement":
+        baseValue = 100;
+        amplitude = 80;
+        frequency = 0.7;
+        noiseFactor = 20;
+        break;
+      default:
+        baseValue = 100;
+        amplitude = 50;
+        frequency = 1;
+        noiseFactor = 10;
+    }
+
+    for (let i = 0; i < totalPoints; i++) {
+      const time = Math.min(i / pointsPerSecond, duration);
+      const value = Math.max(
+        0,
+        baseValue +
+          amplitude * Math.sin((time * frequency * Math.PI) / 2) +
+          (Math.random() - 0.5) * noiseFactor
+      );
+
+      data.push({
+        time: parseFloat(time.toFixed(2)),
+        value: parseFloat(value.toFixed(2)),
+      });
+
+      if (time >= duration) break;
+    }
+    return data;
+  }
+
+  function drawAxes(duration, minValue, maxValue) {
+    if (!ctx || !dataGraphCanvas) return;
+    const padding = 45;
+    const bottomPadding = 65;
+    const graphWidth = dataGraphCanvas.width - padding * 2;
+    const graphHeight = dataGraphCanvas.height - padding - bottomPadding;
+    const originX = padding;
+    const originY = dataGraphCanvas.height - bottomPadding;
+
+    ctx.strokeStyle = "#6b7280";
+    ctx.lineWidth = 1;
+    ctx.font = "14px Inter, sans-serif";
+    ctx.fillStyle = "#4b5563";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.beginPath();
+    ctx.moveTo(originX, padding);
+    ctx.lineTo(originX, originY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(originX + graphWidth, originY);
+    ctx.stroke();
+
+    const numYLabels = 5;
+    for (let i = 0; i <= numYLabels; i++) {
+      const value = minValue + (maxValue - minValue) * (i / numYLabels);
+      const y = originY - graphHeight * (i / numYLabels);
+      ctx.beginPath();
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(originX, y);
+      ctx.lineTo(originX + graphWidth, y);
+      ctx.stroke();
+      ctx.fillStyle = "#4b5563";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText(value.toFixed(0), originX - 10, y);
+    }
+
+    for (let time = 0; time <= duration; time++) {
+      const x = originX + graphWidth * (time / duration);
+      if (time > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = "#e5e7eb";
+        ctx.setLineDash([4, 4]);
+        ctx.moveTo(x, originY);
+        ctx.lineTo(x, padding);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#4b5563";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${time.toFixed(0)}s`, x, originY + 10);
+    }
+    ctx.setLineDash([]);
+  }
+
+  function drawGraph(currentVideoTime) {
+    if (!dataGraphCanvas || !ctx) return;
+
+    dataGraphCanvas.width = dataGraphCanvas.offsetWidth;
+    dataGraphCanvas.height = dataGraphCanvas.offsetHeight;
+    ctx.clearRect(0, 0, dataGraphCanvas.width, dataGraphCanvas.height);
+
+    const graphDisplayDuration = state.videoDuration;
+    const padding = 45;
+    const bottomPadding = 65;
+    const graphWidth = dataGraphCanvas.width - padding * 2;
+    const graphHeight = dataGraphCanvas.height - padding - bottomPadding;
+    const originX = padding;
+    const originY = dataGraphCanvas.height - bottomPadding;
+
+    const categoriesToDraw = new Set([...state.activeCategories, ...Object.keys(state.categoryAnimationStates)]);
+    let calculatedOverallMinValue = Infinity;
+    let calculatedOverallMaxValue = -Infinity;
+    let hasActualData = false;
+
+    categoriesToDraw.forEach((categoryId) => {
+      const data = state.allParsedData[categoryId];
+      if (data && data.length > 0) {
+        const relevantValues = data.filter((p) => p.time <= graphDisplayDuration).map((d) => d.value);
+        if (relevantValues.length > 0) {
+          hasActualData = true;
+          calculatedOverallMinValue = Math.min(calculatedOverallMinValue, ...relevantValues);
+          calculatedOverallMaxValue = Math.max(calculatedOverallMaxValue, ...relevantValues);
+        }
+      }
+    });
+
+    if (!hasActualData || categoriesToDraw.size === 0) {
+      calculatedOverallMinValue = 0;
+      calculatedOverallMaxValue = 1000;
+    }
+
+    calculatedOverallMaxValue *= 1.1;
+    calculatedOverallMinValue = Math.max(0, calculatedOverallMinValue * 0.9);
+
+    if (state.axisAnimationState === null || state.axisAnimationState.endMin !== calculatedOverallMinValue || state.axisAnimationState.endMax !== calculatedOverallMaxValue) {
+      state.axisAnimationState = {
+        startTime: performance.now(),
+        duration: AXIS_ANIMATION_DURATION,
+        startMin: state.currentOverallMinValue,
+        startMax: state.currentOverallMaxValue,
+        endMin: calculatedOverallMinValue,
+        endMax: calculatedOverallMaxValue,
+      };
+    }
+
+    if (state.axisAnimationState) {
+      const elapsed = performance.now() - state.axisAnimationState.startTime;
+      const progress = Math.min(1, elapsed / state.axisAnimationState.duration);
+      state.currentOverallMinValue = state.axisAnimationState.startMin + (state.axisAnimationState.endMin - state.axisAnimationState.startMin) * progress;
+      state.currentOverallMaxValue = state.axisAnimationState.startMax + (state.axisAnimationState.endMax - state.axisAnimationState.startMax) * progress;
+      if (progress >= 1) {
+        state.axisAnimationState = null;
+      }
+    }
+
+    drawAxes(graphDisplayDuration, state.currentOverallMinValue, state.currentOverallMaxValue);
+
+    categoriesToDraw.forEach((categoryId) => {
+      const category = dataCategories.find((cat) => cat.id === categoryId);
+      const data = state.allParsedData[categoryId];
+      if (data && category) {
+        ctx.beginPath();
+        ctx.strokeStyle = category.color;
+        ctx.lineWidth = 2;
+        const animation = state.categoryAnimationStates[categoryId];
+        let currentAnimationProgress = 1;
+        if (animation) {
+          const elapsed = performance.now() - animation.startTime;
+          currentAnimationProgress = Math.min(1, elapsed / animation.duration);
+          if (currentAnimationProgress >= 1) {
+            if (animation.type === "disappear") {
+              state.activeCategories = state.activeCategories.filter((id) => id !== categoryId);
+            }
+            delete state.categoryAnimationStates[categoryId];
+          }
+        }
+        data.forEach((point, index) => {
+          if (point.time <= graphDisplayDuration) {
+            const x = originX + (point.time / graphDisplayDuration) * graphWidth;
+            let y = originY - ((point.value - state.currentOverallMinValue) / (state.currentOverallMaxValue - state.currentOverallMinValue)) * graphHeight;
+            if (animation) {
+              if (animation.type === "appear") {
+                y = originY - (originY - y) * currentAnimationProgress;
+              } else if (animation.type === "disappear") {
+                y = y * (1 - currentAnimationProgress) + originY * currentAnimationProgress;
+              }
+            }
+            if (index === 0 || data[index - 1].time > graphDisplayDuration) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+        });
+        ctx.stroke();
+      }
+    });
+
+    const clampedVideoTime = Math.min(currentVideoTime, graphDisplayDuration);
+    const lineX = originX + (clampedVideoTime / graphDisplayDuration) * graphWidth;
+    ctx.beginPath();
+    ctx.strokeStyle = "#dc2626";
+    ctx.lineWidth = 3;
+    ctx.moveTo(lineX, padding);
+    ctx.lineTo(lineX, originY);
+    ctx.stroke();
+
+    let displayContent = "";
+    state.activeCategories.forEach((categoryId) => {
+      const category = dataCategories.find((cat) => cat.id === categoryId);
+      const data = state.allParsedData[categoryId];
+      if (data && category) {
+        const closestPoint = data.reduce((prev, curr) => Math.abs(curr.time - clampedVideoTime) < Math.abs(prev.time - clampedVideoTime) ? curr : prev);
+        if (closestPoint) {
+          displayContent += `<span style="color: ${category.color};">${category.name}: ${closestPoint.value.toFixed(2)}</span><br>`;
+        }
+      }
+    });
+
+    if (displayContent) {
+      currentValueDisplay.innerHTML = displayContent;
+      const canvasRelativeX = lineX;
+      const canvasRelativeY = padding + 70;
+      let finalX = canvasRelativeX + 105;
+      currentValueDisplay.style.position = "absolute";
+      currentValueDisplay.style.left = `${finalX}px`;
+      currentValueDisplay.style.top = `${canvasRelativeY}px`;
+      currentValueDisplay.style.opacity = "1";
+      currentValueDisplay.style.transform = "translateY(-50%)";
+      currentValueDisplay.style.marginLeft = "0";
+    } else {
+      currentValueDisplay.style.opacity = "0";
+    }
+
+    timeDisplay.innerHTML = `${clampedVideoTime.toFixed(2)}s`;
+    timeDisplay.style.position = "absolute";
+    timeDisplay.style.left = `${lineX + 42}px`;
+    timeDisplay.style.top = `${originY + 79}px`;
+    timeDisplay.style.opacity = "1";
+    timeDisplay.style.transform = "translateX(-50%)";
+  }
+
+  function animateGraph() {
+    const videoPlaying = !videoPlayer.paused && !videoPlayer.ended;
+    const animationsActive = Object.keys(state.categoryAnimationStates).length > 0;
+    const axisAnimating = state.axisAnimationState !== null;
+
+    drawGraph(videoPlayer.currentTime);
+
+    if (videoPlaying || animationsActive || axisAnimating || state.isDraggingLine) {
+      state.animationFrameId = requestAnimationFrame(animateGraph);
+    } else {
+      if (state.animationFrameId !== null) {
+        cancelAnimationFrame(state.animationFrameId);
+        state.animationFrameId = null;
+      }
+    }
+  }
+
+  function setupEventListeners() {
+    videoPlayer.addEventListener("loadedmetadata", () => {
+      const actualDuration = videoPlayer.duration;
+      if (Math.abs(state.videoDuration - actualDuration) > 1) {
+        state.videoDuration = actualDuration;
+        dataCategories.forEach((category) => {
+          state.allParsedData[category.id] = generateMockData(category.id, state.videoDuration);
+        });
+      }
+
+      drawGraph(videoPlayer.currentTime);
+      if (state.animationFrameId === null) {
+        animateGraph();
+      }
+    });
+
+    videoPlayer.addEventListener("timeupdate", () => {
+      drawGraph(videoPlayer.currentTime);
+    });
+
+    videoPlayer.addEventListener("play", () => {
+      if (state.animationFrameId === null) {
+        animateGraph();
+      }
+    });
+
+    const stopAnimation = () => {
+      if (Object.keys(state.categoryAnimationStates).length === 0 && state.axisAnimationState === null && !state.isDraggingLine) {
+        if (state.animationFrameId !== null) {
+          cancelAnimationFrame(state.animationFrameId);
+          state.animationFrameId = null;
+        }
+      }
+    };
+
+    videoPlayer.addEventListener("pause", stopAnimation);
+    videoPlayer.addEventListener("ended", stopAnimation);
+
+    window.addEventListener("resize", () => {
+      drawGraph(videoPlayer.currentTime);
+    });
+
+    // Graph interaction
+    dataGraphCanvas.addEventListener("mousedown", (event) => {
+      const padding = 45;
+      const graphWidth = dataGraphCanvas.width - padding * 2;
+      const originX = padding;
+      const lineX = originX + (videoPlayer.currentTime / state.videoDuration) * graphWidth;
+
+      if (Math.abs(event.offsetX - lineX) < LINE_DRAG_HIT_AREA_PX) {
+        state.isDraggingLine = true;
+        state.wasVideoPlayingBeforeDrag = !videoPlayer.paused;
+        videoPlayer.pause();
+        dataGraphCanvas.style.cursor = "grabbing";
+        if (state.animationFrameId === null) {
+          animateGraph();
+        }
+      }
+    });
+
+    dataGraphCanvas.addEventListener("mousemove", (event) => {
+      const padding = 45;
+      const graphWidth = dataGraphCanvas.width - padding * 2;
+      const originX = padding;
+      const lineX = originX + (videoPlayer.currentTime / state.videoDuration) * graphWidth;
+
+      if (state.isDraggingLine) {
+        let newX = Math.max(originX, Math.min(originX + graphWidth, event.offsetX));
+        const timeRatio = (newX - originX) / graphWidth;
+        let newTime = Math.max(0, Math.min(state.videoDuration, timeRatio * state.videoDuration));
+        videoPlayer.currentTime = newTime;
+      } else {
+        if (Math.abs(event.offsetX - lineX) < LINE_DRAG_HIT_AREA_PX) {
+          dataGraphCanvas.style.cursor = "grab";
+        } else {
+          dataGraphCanvas.style.cursor = "default";
+        }
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (state.isDraggingLine) {
+        state.isDraggingLine = false;
+        dataGraphCanvas.style.cursor = "default";
+        if (state.wasVideoPlayingBeforeDrag) {
+          videoPlayer.play();
+        }
+      }
+    });
+  }
+
+  function initializeGraph() {
+    if (state.graphAppInitialized) return;
+    state.graphAppInitialized = true;
+
+    initDOM();
+    setupEventListeners();
+    
+    // Load html2canvas-pro
+    import("html2canvas-pro").then((module) => {
+      window.html2canvas = module.default || module;
+    }).catch(error => {
+      console.error("Failed to load html2canvas-pro:", error);
+    });
+
+    // Initialize with default data
+    state.videoDuration = 30;
+    dataCategories.forEach((category) => {
+      state.allParsedData[category.id] = generateMockData(category.id, state.videoDuration);
+      state.activeCategories.push(category.id);
+    });
+
+    drawGraph(0);
+    if (state.animationFrameId === null) {
+      animateGraph();
+    }
+
+    videoPlayer?.load();
+  }
+
+  // Initialize when app starts
+  document.addEventListener('app:start', initializeGraph);
+  
+  // Also initialize immediately if main app is already visible
+  if (document.getElementById('mainApp')?.style.display === 'flex') {
+    initializeGraph();
+  }
+</script>

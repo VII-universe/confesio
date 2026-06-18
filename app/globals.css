@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+:root {
+  --spacing: 0.0625rem;
+  --background: #09080F;
+  --foreground: #ededed;
+}
+
+@theme {
+  --color-panelBackground: #12111A;
+  --color-borderBlue: #1F1D2C;
+  --color-accentNeon: #D4FF3E;
+  --color-accentPurple: #7F3DFF;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* Triangle pointer for info display */
+#currentValueDisplay::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -8px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid rgba(255, 255, 255, 0.9);
+  z-index: 21;
+}
+
+/* Add a subtle shadow to the triangle */
+#currentValueDisplay::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 9px solid rgba(0, 0, 0, 0.1);
+  z-index: 20;
+}
+
+/* Triangle pointer for time display */
+#timeDisplay::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid rgba(255, 255, 255, 0.9);
+  z-index: 21;
+}
+
+/* Add a subtle shadow to the time triangle */
+#timeDisplay::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid rgba(0, 0, 0, 0.1);
+  z-index: 20;
+}
+
+/* Fix for screenshot container to prevent gray areas */
+#video-data-container {
+  box-sizing: border-box;
+  background: #060B28;
+}
+
+/* Ensure data display section doesn't cause layout issues */
+/* Graph axis text color */
+.graph-axis, .graph-axis text, .graph-x-axis, .graph-y-axis, .graph-x-axis text, .graph-y-axis text {
+  fill: #fff !important;
+  color: #fff !important;
+}
+#dataDisplaySection {
+  box-sizing: border-box;
+  width: 100%;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+#video-graph-container > div:last-child {
+  transition: opacity 0.3s ease-in-out;
+  visibility: visible;
+}
+
+/* Prevent body scrolling during animations */
+body.screenshot-mode {
+  overflow: hidden;
+}
+
+/* Custom premium animation utilities */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Premium Slate Dashboard Panel styling */
+.glass-panel {
+  background: #12111A !important;
+  border: 1px solid #1F1D2C !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.glass-panel:hover {
+  border-color: rgba(212, 255, 62, 0.25) !important;
+  box-shadow: 0 12px 40px 0 rgba(212, 255, 62, 0.03), 
+              inset 0 0 12px rgba(212, 255, 62, 0.01) !important;
+}
+
+/* Scrollbar hiding utilities to prevent layout shifting on hover scale */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}

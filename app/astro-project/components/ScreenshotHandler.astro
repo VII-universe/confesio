@@ -1,0 +1,204 @@
+---
+// Screenshot component handles the screenshot functionality
+// Add type declarations for window.html2canvas
+declare global {
+  interface Window {
+    html2canvas: any;
+  }
+}
+---
+
+<script>
+  async function updateDataDisplay(currentVideoTime: number) {
+    const dataValuesGrid = document.getElementById("dataValuesGrid");
+    if (!dataValuesGrid) return;
+
+    // Get active categories from the controls component
+    const activeCategories: string[] = [];
+    const checkboxes = document.querySelectorAll('#categoryCheckboxes input[type="checkbox"]:checked');
+    checkboxes.forEach(checkbox => {
+      const input = checkbox as HTMLInputElement;
+      activeCategories.push(input.value);
+    });
+
+    const dataCategories = [
+      { id: "impressions", name: "Impressions", color: "#3b82f6" },
+      { id: "clicks", name: "Clicks", color: "#10b981" },
+      { id: "conversions", name: "Conversions", color: "#ef4444" },
+      { id: "engagement", name: "Engagement", color: "#f59e0b" },
+    ];
+
+    // Get data from graph component state (this is a simplified approach)
+    // In a real app, you might want to use a more sophisticated state management
+    let gridContent = "";
+    activeCategories.forEach((categoryId) => {
+      const category = dataCategories.find(cat => cat.id === categoryId);
+      if (category) {
+        // Generate mock value for display (this should come from actual data)
+        const mockValue = Math.random() * 100;
+        gridContent += `
+          <div class="bg-gray-50 rounded-lg p-4 text-center border-l-4" style="border-left-color: ${category.color};">
+            <div class="text-lg font-bold" style="color: ${category.color};">${mockValue.toFixed(2)}</div>
+            <div class="text-sm text-gray-600">${category.name}</div>
+          </div>
+        `;
+      }
+    });
+    dataValuesGrid.innerHTML = gridContent;
+  }
+
+  async function showDataDisplay(currentVideoTime: number) {
+    const dataDisplaySection = document.getElementById("dataDisplaySection");
+    if (!dataDisplaySection) return;
+
+    updateDataDisplay(currentVideoTime);
+    
+    dataDisplaySection.style.display = "block";
+    dataDisplaySection.style.opacity = "0";
+    dataDisplaySection.style.transform = "translateY(-20px)";
+    
+    dataDisplaySection.offsetHeight; // Force reflow
+    
+    dataDisplaySection.style.opacity = "1";
+    dataDisplaySection.style.transform = "translateY(0)";
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  async function hideDataDisplay() {
+    const dataDisplaySection = document.getElementById("dataDisplaySection");
+    if (!dataDisplaySection) return;
+
+    dataDisplaySection.style.opacity = "0";
+    dataDisplaySection.style.transform = "translateY(-20px)";
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    dataDisplaySection.style.display = "none";
+  }
+
+  async function fadeOutGraph() {
+    const graphSection = document.querySelector('#video-graph-container > div:last-child') as HTMLElement;
+    if (!graphSection) return;
+
+    graphSection.style.transition = "opacity 0.3s ease-in-out";
+    graphSection.style.opacity = "0";
+    graphSection.style.pointerEvents = "none";
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  async function fadeInGraph() {
+    const graphSection = document.querySelector('#video-graph-container > div:last-child') as HTMLElement;
+    if (!graphSection) return;
+
+    graphSection.style.opacity = "1";
+    graphSection.style.pointerEvents = "auto";
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  async function takeScreenshot() {
+    if (!window.html2canvas) {
+      alert("Screenshot library is still loading. Please try again in a moment.");
+      return;
+    }
+
+    try {
+      const videoPlayer = document.getElementById("videoPlayer") as HTMLVideoElement;
+      const videoDataContainer = document.getElementById("video-data-container");
+      
+      if (!videoPlayer || !videoDataContainer) {
+        throw new Error("Required elements not found");
+      }
+
+      document.body.classList.add('screenshot-mode');
+      
+      await fadeOutGraph();
+      await showDataDisplay(videoPlayer.currentTime);
+
+      const videoContainer = videoDataContainer.querySelector('div:first-child') as HTMLElement;
+      const originalVideoRadius = videoContainer?.style.borderRadius || '';
+      const originalVideoClass = videoContainer?.className || '';
+      const originalDataRadius = document.getElementById("dataDisplaySection")?.style.borderRadius || '';
+      const originalDataClass = document.getElementById("dataDisplaySection")?.className || '';
+
+      if (videoContainer) {
+        videoContainer.style.borderRadius = '0';
+        videoContainer.className = originalVideoClass.replace(/rounded-\w+/g, '');
+      }
+      
+      const dataContainer = document.getElementById("dataDisplaySection");
+      if (dataContainer) {
+        dataContainer.style.borderRadius = '0';
+        dataContainer.className = originalDataClass.replace(/rounded-\w+/g, '');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await window.html2canvas(videoDataContainer, {
+        allowTaint: true,
+        useCORS: true,
+        scale: 1,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: videoDataContainer.offsetWidth,
+        height: videoDataContainer.offsetHeight,
+        scrollX: 0,
+        scrollY: 0
+      });
+
+      // Restore original styles
+      if (videoContainer) {
+        videoContainer.style.borderRadius = originalVideoRadius;
+        videoContainer.className = originalVideoClass;
+      }
+      
+      if (dataContainer) {
+        dataContainer.style.borderRadius = originalDataRadius;
+        dataContainer.className = originalDataClass;
+      }
+
+      await hideDataDisplay();
+      await fadeInGraph();
+      document.body.classList.remove('screenshot-mode');
+
+      canvas.toBlob((blob: Blob | null) => {
+        if (!blob) {
+          alert("Failed to create screenshot blob");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `video-screenshot-${videoPlayer.currentTime.toFixed(2)}s.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    } catch (error: unknown) {
+      console.error("Screenshot failed:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Screenshot failed: ${errorMessage}`);
+      
+      document.body.classList.remove('screenshot-mode');
+      await hideDataDisplay();
+      await fadeInGraph();
+    }
+  }
+
+  function setupScreenshot() {
+    const screenshotButton = document.getElementById("screenshotButton");
+    if (screenshotButton) {
+      screenshotButton.addEventListener("click", takeScreenshot);
+    }
+  }
+
+  // Initialize when app starts
+  document.addEventListener('app:start', setupScreenshot);
+  
+  // Also initialize immediately if main app is already visible
+  if (document.getElementById('mainApp')?.style.display === 'flex') {
+    setupScreenshot();
+  }
+</script>

@@ -1,0 +1,148 @@
+---
+const dataCategories = [
+  { id: "impressions", name: "Impressions", color: "#3b82f6" }, // Blue
+  { id: "clicks", name: "Clicks", color: "#10b981" }, // Green
+  { id: "conversions", name: "Conversions", color: "#ef4444" }, // Red
+  { id: "engagement", name: "Engagement", color: "#f59e0b" }, // Amber
+];
+---
+
+<div class="bg-white rounded-xl shadow-xl p-5 w-full max-w-xs flex flex-col gap-4 mt-5 lg:mt-0 lg:ml-5 flex-shrink-0">
+  <h2 class="text-xl font-bold text-gray-800 mb-2">Data Categories</h2>
+  <div id="categoryCheckboxes" class="flex flex-col gap-3">
+    <!-- Checkboxes will be dynamically populated -->
+  </div>
+
+  <div class="flex flex-col sm:flex-row justify-center gap-4 mt-4">
+    <button
+      id="playPauseButton"
+      class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 text-center"
+    >
+      Play
+    </button>
+    <button
+      id="resetButton"
+      class="px-4 py-2 bg-gray-500 text-white rounded-lg shadow-md hover:bg-gray-600 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 text-center"
+    >
+      Reset
+    </button>
+  </div>
+</div>
+
+<script define:vars={{ dataCategories }}>
+  let videoPlayer, playPauseButton, resetButton, categoryCheckboxesContainer;
+  let activeCategories = [];
+  let categoryAnimationStates = {};
+  let animationFrameId = null;
+
+  function initDOM() {
+    videoPlayer = document.getElementById("videoPlayer");
+    playPauseButton = document.getElementById("playPauseButton");
+    resetButton = document.getElementById("resetButton");
+    categoryCheckboxesContainer = document.getElementById("categoryCheckboxes");
+  }
+
+  function triggerGraphAnimation() {
+    // Dispatch event to notify graph component to animate
+    document.dispatchEvent(new CustomEvent('graph:animate'));
+  }
+
+  function initializeCategoryCheckboxes() {
+    if (!categoryCheckboxesContainer) return;
+    categoryCheckboxesContainer.innerHTML = "";
+    
+    dataCategories.forEach((category) => {
+      const div = document.createElement("div");
+      div.className = "flex items-center gap-2 cursor-pointer text-sm text-gray-700";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `category-${category.id}`;
+      input.value = category.id;
+      input.checked = true;
+      input.className = "w-4 h-4 rounded border-2 border-gray-400 focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors duration-200";
+      input.style.accentColor = category.color;
+
+      const label = document.createElement("label");
+      label.htmlFor = `category-${category.id}`;
+      label.textContent = category.name;
+      label.style.color = category.color;
+      label.className = "cursor-pointer select-none";
+
+      div.appendChild(input);
+      div.appendChild(label);
+      categoryCheckboxesContainer.appendChild(div);
+
+      input.addEventListener("change", (event) => {
+        const target = event.target;
+        if (target.checked) {
+          if (!activeCategories.includes(category.id)) {
+            activeCategories.push(category.id);
+            document.dispatchEvent(new CustomEvent('category:toggle', {
+              detail: { categoryId: category.id, active: true }
+            }));
+          }
+        } else {
+          if (activeCategories.includes(category.id)) {
+            activeCategories = activeCategories.filter(id => id !== category.id);
+            document.dispatchEvent(new CustomEvent('category:toggle', {
+              detail: { categoryId: category.id, active: false }
+            }));
+          }
+        }
+      });
+
+      activeCategories.push(category.id);
+    });
+  }
+
+  function setupEventListeners() {
+    playPauseButton.addEventListener("click", () => {
+      if (videoPlayer.paused) {
+        videoPlayer.play();
+        playPauseButton.textContent = "Pause";
+      } else {
+        videoPlayer.pause();
+        playPauseButton.textContent = "Play";
+      }
+    });
+
+    resetButton.addEventListener("click", () => {
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
+      playPauseButton.textContent = "Play";
+      
+      // Reset all categories to active
+      activeCategories = [];
+      dataCategories.forEach((category) => {
+        activeCategories.push(category.id);
+        const checkbox = document.getElementById(`category-${category.id}`);
+        if (checkbox) checkbox.checked = true;
+      });
+      
+      document.dispatchEvent(new CustomEvent('video:reset'));
+    });
+
+    videoPlayer.addEventListener("timeupdate", () => {
+      playPauseButton.textContent = videoPlayer.paused ? "Play" : "Pause";
+    });
+
+    videoPlayer.addEventListener("ended", () => {
+      playPauseButton.textContent = "Play";
+    });
+  }
+
+  function initializeControls() {
+    initDOM();
+    initializeCategoryCheckboxes();
+    setupEventListeners();
+  }
+
+  // Initialize when app starts
+  document.addEventListener('app:start', initializeControls);
+  
+  // Also initialize immediately if main app is already visible
+  if (document.getElementById('mainApp')?.style.display === 'flex') {
+    initializeControls();
+  }
+</script>
