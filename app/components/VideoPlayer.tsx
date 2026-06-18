@@ -18,6 +18,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
             className={`w-full h-auto block ${className}`}
             controls
             preload="auto"
+            poster="/videos/poster.jpg"
           >
             <source src={`${videoSrc}#t=0.001`} type="video/mp4" />
             Your browser does not support the video tag.
