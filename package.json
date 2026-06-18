@@ -12,7 +12,7 @@
     "gsap": "^3.13.0",
     "html2canvas-pro": "^1.5.11",
     "lodash": "^4.17.21",
-    "next": "15.4.5",
+    "next": "15.4.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-gauge-chart": "^0.5.1"
@@ -25,7 +25,7 @@
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
     "eslint": "^9",
-    "eslint-config-next": "15.4.5",
+    "eslint-config-next": "15.4.11",
     "@eslint/eslintrc": "^3"
   },
   "overrides": {
